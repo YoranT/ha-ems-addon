@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMS — Energy Management System</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+:root{--bg:#0a0e14;--surface:#111720;--surface2:#161d2a;--border:#1e2d40;--accent:#00d4aa;--accent2:#f5a623;--accent3:#5b8aff;--accent4:#ff5e7e;--text:#e8f0f8;--muted:#5a7a9a;--grid-line:rgba(0,212,170,0.04);}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;z-index:0;background-image:linear-gradient(var(--grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;}
+/* SIDEBAR */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:64px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px;z-index:100;transition:width .3s;}
+.sidebar:hover{width:200px;}
+.slogo{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:2px;margin-bottom:16px;white-space:nowrap;overflow:hidden;}
+.nav{width:100%;padding:12px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;transition:all .2s;white-space:nowrap;border-left:2px solid transparent;overflow:hidden;}
+.nav:hover{color:var(--text);background:rgba(255,255,255,.04);}
+.nav.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,212,170,.06);}
+.nav svg{flex-shrink:0;}
+/* MAIN */
+.main{margin-left:64px;padding:24px;position:relative;z-index:1;}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;}
+.htitle{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;}
+.htitle span{display:block;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:600;letter-spacing:0;color:var(--text);margin-top:2px;}
+.spill{display:flex;align-items:center;gap:8px;background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);border-radius:100px;padding:6px 14px;font-size:12px;font-weight:500;color:var(--accent);}
+.spill::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite;}
+.spill.off{background:rgba(255,94,126,.08);border-color:rgba(255,94,126,.2);color:var(--accent4);}
+.spill.off::before{background:var(--accent4);animation:none;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+/* VIEWS */
+.view{display:none;}.view.active{display:block;}
+/* KPI */
+.krow{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden;}
+.kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;}
+.kpi.g::after{background:linear-gradient(90deg,var(--accent),transparent);}
+.kpi.o::after{background:linear-gradient(90deg,var(--accent2),transparent);}
+.kpi.b::after{background:linear-gradient(90deg,var(--accent3),transparent);}
+.kpi.r::after{background:linear-gradient(90deg,var(--accent4),transparent);}
+.klbl{font-size:11px;color:var(--muted);font-weight:500;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;}
+.kval{font-family:'Space Mono',monospace;font-size:26px;font-weight:700;}
+.ksub{font-size:11px;color:var(--muted);margin-top:4px;}
+.kpi.g .kval{color:var(--accent);}.kpi.o .kval{color:var(--accent2);}.kpi.b .kval{color:var(--accent3);}.kpi.r .kval{color:var(--accent4);}
+/* FLOW */
+.flowbox{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:24px;position:relative;}
+.flowlbl{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--muted);}
+.flowgrid{display:grid;grid-template-columns:1fr 60px 1fr 60px 1fr;align-items:center;margin-top:20px;}
+.fnode{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;text-align:center;}
+.ficon{width:50px;height:50px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;}
+.fval{font-family:'Space Mono',monospace;font-size:18px;font-weight:700;}
+.flbl{font-size:11px;color:var(--muted);}
+.farrow{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 6px;}
+.aline{width:100%;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
+.aval{font-family:'Space Mono',monospace;font-size:10px;color:var(--accent);}
+.fstack{display:flex;flex-direction:column;gap:8px;}
+.frow{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;}
+/* CHART */
+.cbox{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:24px;}
+.cheader{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.ctitle{font-weight:600;font-size:14px;}
+.clegend{display:flex;gap:16px;}
+.cli{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);}
+.cdot{width:8px;height:8px;border-radius:50%;}
+.csvg{width:100%;height:160px;}
+/* DEVICES */
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+.dcard{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;transition:border-color .2s,transform .2s;}
+.dcard:hover{border-color:var(--accent);transform:translateY(-2px);}
+.dhead{display:flex;align-items:center;gap:10px;}
+.dicon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
+.dname{font-weight:600;font-size:13px;}
+.dtype{font-size:11px;color:var(--muted);margin-top:1px;}
+.dbadge{margin-left:auto;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600;}
+.bon{background:rgba(0,212,170,.12);color:var(--accent);}
+.boff{background:rgba(255,94,126,.12);color:var(--accent4);}
+.bsby{background:rgba(245,166,35,.12);color:var(--accent2);}
+.dstats{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.ds{background:var(--surface2);border-radius:8px;padding:9px 11px;}
+.dslbl{font-size:10px;color:var(--muted);margin-bottom:2px;}
+.dsval{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;}
+.dbar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.dbarf{height:100%;border-radius:2px;transition:width .8s ease;}
+.dbtns{display:flex;gap:6px;}
+.dbtn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-family:'DM Sans',sans-serif;transition:all .2s;}
+.dbtn:hover{color:var(--text);border-color:var(--accent);}
+.dbtn.del:hover{color:var(--accent4);border-color:var(--accent4);}
+/* MODAL */
+.moverlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
+.moverlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:30px;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;animation:slideUp .3s ease;}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+.mtitle{font-size:18px;font-weight:700;margin-bottom:4px;}
+.msub{font-size:13px;color:var(--muted);margin-bottom:24px;}
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:22px;}
+.tbtn{background:var(--surface2);border:2px solid var(--border);border-radius:12px;padding:14px 8px;text-align:center;cursor:pointer;transition:all .2s;}
+.tbtn:hover{border-color:var(--accent);}
+.tbtn.sel{border-color:var(--accent);background:rgba(0,212,170,.08);}
+.tbtn .ti{font-size:24px;margin-bottom:6px;}
+.tbtn .tl{font-size:12px;font-weight:500;}
+.fg{margin-bottom:14px;}
+.fl{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:1px;}
+.fi,.fsel{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;}
+.fi:focus,.fsel:focus{border-color:var(--accent);}
+.fsel option{background:var(--surface2);}
+.frow2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.bprimary{background:var(--accent);color:#000;font-weight:700;border:none;border-radius:10px;padding:11px 22px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;transition:all .2s;}
+.bprimary:hover{background:#00f0c0;}
+.bcancel{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:11px 22px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;margin-right:8px;}
+.addbtn{display:flex;align-items:center;gap:8px;background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.25);color:var(--accent);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.addbtn:hover{background:rgba(0,212,170,.2);}
+/* SETTINGS */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.ssec{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;}
+.sstitle{font-weight:700;font-size:14px;margin-bottom:14px;color:var(--accent);}
+.trow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);}
+.trow:last-of-type{border-bottom:none;}
+.tlbl{font-size:13px;}
+.tsub{font-size:11px;color:var(--muted);margin-top:2px;}
+.tog{position:relative;width:40px;height:22px;background:var(--border);border-radius:11px;cursor:pointer;transition:background .3s;flex-shrink:0;}
+.tog.on{background:var(--accent);}
+.tog::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .3s;}
+.tog.on::after{transform:translateX(18px);}
+.sbtn{margin-top:14px;background:var(--accent);color:#000;font-weight:700;border:none;border-radius:8px;padding:9px 18px;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;}
+/* LOG */
+.logbox{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.loghdr{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;}
+.logbody{font-family:'Space Mono',monospace;font-size:11px;max-height:520px;overflow-y:auto;}
+.lline{padding:7px 18px;border-bottom:1px solid rgba(255,255,255,.03);display:flex;gap:12px;animation:fi .3s ease;}
+@keyframes fi{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+.ltime{color:var(--muted);flex-shrink:0;}
+.lmsg.info{color:var(--accent3);}.lmsg.warn{color:var(--accent2);}.lmsg.ok{color:var(--accent);}.lmsg.err{color:var(--accent4);}
+/* ENTITY PICKER */
+.epick{position:relative;}
+.elist{position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto;z-index:20;display:none;}
+.elist.open{display:block;}
+.eopt{padding:7px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);}
+.eopt:hover{background:rgba(0,212,170,.08);color:var(--accent);}
+.eid{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);}
+/* MISC */
+.sechdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.sectitle{font-size:15px;font-weight:700;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="slogo">EMS</div>
+  <div class="nav active" onclick="gotoView('dashboard',this)">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
+  </div>
+  <div class="nav" onclick="gotoView('devices',this)">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>Apparaten
+  </div>
+  <div class="nav" onclick="gotoView('settings',this)">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Instellingen
+  </div>
+  <div class="nav" onclick="gotoView('log',this)">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Logboek
+  </div>
+</nav>
+
+<div class="main">
+  <div class="header">
+    <div><div class="htitle">HOME ASSISTANT ADD-ON<span id="vtitle">Dashboard</span></div></div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div class="spill off" id="connpill">Verbinden...</div>
+      <button class="addbtn" onclick="openModal()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Apparaat toevoegen
+      </button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="view-dashboard" class="view active">
+    <div class="krow">
+      <div class="kpi g"><div class="klbl">☀️ Zonne-opbrengst</div><div class="kval" id="ks">—</div><div class="ksub" id="ks2">Wacht op data</div></div>
+      <div class="kpi o"><div class="klbl">🔋 Batterij</div><div class="kval" id="kb">—</div><div class="ksub" id="kb2">—</div></div>
+      <div class="kpi b"><div class="klbl">🔌 Laadpaal</div><div class="kval" id="ke">—</div><div class="ksub" id="ke2">—</div></div>
+      <div class="kpi r"><div class="klbl">⚡ Net</div><div class="kval" id="kg">—</div><div class="ksub" id="kg2">—</div></div>
+    </div>
+    <div class="flowbox">
+      <div class="flowlbl">VERMOGENSSTROOM</div>
+      <div class="flowgrid">
+        <div class="fnode">
+          <div class="ficon" style="background:rgba(245,166,35,.14);">☀️</div>
+          <div class="fval" style="color:var(--accent2)" id="fs">0 W</div>
+          <div class="flbl">Zonnepanelen</div>
+        </div>
+        <div class="farrow"><div class="aval">→</div><div class="aline"></div></div>
+        <div class="fnode" style="border-color:var(--accent)">
+          <div class="ficon" style="background:rgba(0,212,170,.12);">🏠</div>
+          <div class="fval" style="color:var(--accent)" id="fh">0 W</div>
+          <div class="flbl">Thuisverbruik</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="fhp"></div>
+        </div>
+        <div class="farrow"><div class="aval">→</div><div class="aline"></div></div>
+        <div class="fstack">
+          <div class="frow">
+            <span style="font-size:22px">🔋</span>
+            <div><div class="fval" style="color:var(--accent);font-size:15px" id="fb">0 W</div><div class="flbl" id="fbsoc">SoC —%</div></div>
+          </div>
+          <div class="frow">
+            <span style="font-size:22px">🔌</span>
+            <div><div class="fval" style="color:var(--accent3);font-size:15px" id="fev">0 W</div><div class="flbl">Laadpaal</div></div>
+          </div>
+          <div class="frow">
+            <span style="font-size:22px">⚡</span>
+            <div><div class="fval" style="color:var(--accent4);font-size:15px" id="fg2">0 W</div><div class="flbl" id="fgl">Net</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cbox">
+      <div class="cheader">
+        <div class="ctitle">Vermogen — realtime geschiedenis</div>
+        <div class="clegend">
+          <div class="cli"><div class="cdot" style="background:var(--accent2)"></div>Zon</div>
+          <div class="cli"><div class="cdot" style="background:var(--accent)"></div>Batterij</div>
+          <div class="cli"><div class="cdot" style="background:var(--accent3)"></div>Laadpaal</div>
+          <div class="cli"><div class="cdot" style="background:var(--accent4)"></div>Net</div>
+        </div>
+      </div>
+      <svg id="chart" class="csvg" viewBox="0 0 800 160" preserveAspectRatio="none">
+        <line x1="0" y1="40" x2="800" y2="40" stroke="#1e2d40" stroke-width="1"/>
+        <line x1="0" y1="80" x2="800" y2="80" stroke="#1e2d40" stroke-width="1"/>
+        <line x1="0" y1="120" x2="800" y2="120" stroke="#1e2d40" stroke-width="1"/>
+        <path id="cp-sol" d="M0,155 L800,155" fill="none" stroke="#f5a623" stroke-width="2"/>
+        <path id="cp-bat" d="M0,155 L800,155" fill="none" stroke="#00d4aa" stroke-width="2" stroke-dasharray="5,3"/>
+        <path id="cp-ev"  d="M0,155 L800,155" fill="none" stroke="#5b8aff" stroke-width="2"/>
+        <path id="cp-grd" d="M0,155 L800,155" fill="none" stroke="#ff5e7e" stroke-width="1.5" stroke-dasharray="3,3"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- DEVICES -->
+  <div id="view-devices" class="view">
+    <div class="sechdr">
+      <div class="sectitle">Apparaten (<span id="dcnt">0</span>)</div>
+      <button class="addbtn" onclick="openModal()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Toevoegen
+      </button>
+    </div>
+    <div class="dgrid" id="dgrid">
+      <div style="color:var(--muted);font-size:13px;padding:48px;text-align:center;grid-column:1/-1">Verbinding maken met EMS backend...</div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="view-settings" class="view">
+    <div class="sgrid">
+      <div class="ssec">
+        <div class="sstitle">⚡ EMS Strategie</div>
+        <div class="trow"><div><div class="tlbl">Eigen verbruik maximaliseren</div><div class="tsub">Zon eerst naar huis, dan batterij</div></div><div class="tog" id="t-sc" onclick="tog(this,'strategy_self_consumption')"></div></div>
+        <div class="trow"><div><div class="tlbl">Slimme laadpaal</div><div class="tsub">EV laden bij zonne-overschot</div></div><div class="tog" id="t-ev" onclick="tog(this,'strategy_smart_charging')"></div></div>
+        <div class="trow"><div><div class="tlbl">Dynamische tarieven</div><div class="tsub">Koppelen aan spotprijzen</div></div><div class="tog" id="t-dt" onclick="tog(this,'strategy_dynamic_tariff')"></div></div>
+        <div class="trow"><div><div class="tlbl">Piekbelasting vermijden</div><div class="tsub">Capaciteitstarief optimalisatie</div></div><div class="tog" id="t-ps" onclick="tog(this,'strategy_peak_shaving')"></div></div>
+        <div class="trow"><div><div class="tlbl">Warmtepomp sturing</div><div class="tsub">Activeer op zonne-uren</div></div><div class="tog" id="t-hp" onclick="tog(this,'strategy_heatpump')"></div></div>
+        <button class="sbtn" onclick="saveSettings()">Opslaan</button>
+      </div>
+      <div class="ssec">
+        <div class="sstitle">🔋 Batterijbeheer</div>
+        <div class="trow"><div><div class="tlbl">Nacht laden (dal)</div><div class="tsub">Laden op laag nacht tarief</div></div><div class="tog" id="t-nc" onclick="tog(this,'battery_night_charging')"></div></div>
+        <div class="trow"><div><div class="tlbl">V2G teruglevering</div><div class="tsub">Auto-energie terug naar net</div></div><div class="tog" id="t-v2g" onclick="tog(this,'battery_v2g')"></div></div>
+        <div class="fg" style="margin-top:14px">
+          <label class="fl">Min. batterijreserve: <span id="socv">20</span>%</label>
+          <input class="fi" type="range" min="5" max="50" value="20" id="socslider" oninput="document.getElementById('socv').textContent=this.value" style="accent-color:var(--accent);padding:4px 0">
+        </div>
+        <div class="fg"><label class="fl">Importtarief (€/kWh)</label><input class="fi" id="ti" type="number" step="0.01" value="0.28"></div>
+        <div class="fg"><label class="fl">Exporttarief (€/kWh)</label><input class="fi" id="te" type="number" step="0.01" value="0.08"></div>
+        <button class="sbtn" onclick="saveSettings()">Opslaan</button>
+      </div>
+      <div class="ssec">
+        <div class="sstitle">🌐 Integraties</div>
+        <div class="trow"><div><div class="tlbl">MQTT Broker</div><div class="tsub" id="mqttlbl">—</div></div><div class="tog" id="t-mqtt" onclick="tog(this,'mqtt_enabled')"></div></div>
+        <div class="trow"><div><div class="tlbl">Modbus TCP</div><div class="tsub">Directe inverter verbinding</div></div><div class="tog" id="t-mb" onclick="tog(this,'modbus_enabled')"></div></div>
+        <div class="trow"><div><div class="tlbl">OCPP Laadpaal</div><div class="tsub">Open Charge Point Protocol 1.6</div></div><div class="tog" id="t-ocpp" onclick="tog(this,'ocpp_enabled')"></div></div>
+        <div class="fg" style="margin-top:14px"><label class="fl">Scan interval (seconden)</label><input class="fi" id="tscan" type="number" min="5" max="60" value="10"></div>
+        <div class="fg"><label class="fl">Max. netaansluiting (W)</label><input class="fi" id="tmaxg" type="number" step="100" value="10000"></div>
+        <button class="sbtn" onclick="saveSettings()">Opslaan</button>
+      </div>
+      <div class="ssec">
+        <div class="sstitle">🔔 Meldingen</div>
+        <div class="trow"><div><div class="tlbl">Alarm bij netuitval</div></div><div class="tog" id="t-ng" onclick="tog(this,'notify_grid_fail')"></div></div>
+        <div class="trow"><div><div class="tlbl">Batterij vol / leeg</div></div><div class="tog" id="t-nb" onclick="tog(this,'notify_battery')"></div></div>
+        <div class="trow"><div><div class="tlbl">EV laden klaar</div></div><div class="tog" id="t-ne" onclick="tog(this,'notify_ev_done')"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div id="view-log" class="view">
+    <div class="logbox">
+      <div class="loghdr"><span>Systeem Logboek</span><span style="color:var(--muted);font-size:11px;font-family:Space Mono">Live · <span id="lcnt">0</span></span></div>
+      <div class="logbody" id="logbody"><div style="color:var(--muted);padding:20px;font-size:12px">Verbinden...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="moverlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="mtitle">Apparaat toevoegen</div>
+    <div class="msub">Kies type, vul verbindingsdetails in en koppel optioneel een Home Assistant entiteit</div>
+    <div class="tgrid">
+      <div class="tbtn sel" onclick="pickType(this,'Thuisbatterij')"><div class="ti">🔋</div><div class="tl">Thuisbatterij</div></div>
+      <div class="tbtn" onclick="pickType(this,'Zonnepanelen')"><div class="ti">☀️</div><div class="tl">Zonnepanelen</div></div>
+      <div class="tbtn" onclick="pickType(this,'Laadpaal (EV)')"><div class="ti">🔌</div><div class="tl">Laadpaal (EV)</div></div>
+      <div class="tbtn" onclick="pickType(this,'Warmtepomp')"><div class="ti">🌡️</div><div class="tl">Warmtepomp</div></div>
+      <div class="tbtn" onclick="pickType(this,'Boiler')"><div class="ti">🚿</div><div class="tl">Boiler</div></div>
+      <div class="tbtn" onclick="pickType(this,'Net / Slimme meter')"><div class="ti">📊</div><div class="tl">Slimme meter</div></div>
+      <div class="tbtn" onclick="pickType(this,'Omvormer')"><div class="ti">⚡</div><div class="tl">Omvormer</div></div>
+      <div class="tbtn" onclick="pickType(this,'Airco / Koeling')"><div class="ti">❄️</div><div class="tl">Airco</div></div>
+      <div class="tbtn" onclick="pickType(this,'Overig')"><div class="ti">🔧</div><div class="tl">Overig</div></div>
+    </div>
+    <div class="frow2">
+      <div class="fg"><label class="fl">Naam *</label><input class="fi" id="mn" placeholder="bijv. Huawei Luna 2000"></div>
+      <div class="fg"><label class="fl">Merk</label>
+        <select class="fsel" id="mbrand">
+          <option>Huawei</option><option>SolarEdge</option><option>Fronius</option><option>Growatt</option><option>Victron</option><option>Tesla</option><option>BYD</option><option>Solax</option><option>Wallbox</option><option>Alfen</option><option>ABB</option><option>DAIKIN</option><option>Bosch</option><option>Nibe</option><option>Eastron</option><option>Overig</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow2">
+      <div class="fg"><label class="fl">Protocol</label>
+        <select class="fsel" id="mproto">
+          <option>Modbus TCP</option><option>MQTT</option><option>OCPP</option><option>SunSpec</option><option>REST API</option><option>RS485</option><option>Home Assistant Entiteit</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">IP-adres</label><input class="fi" id="mip" placeholder="192.168.1.100"></div>
+    </div>
+    <div class="frow2">
+      <div class="fg"><label class="fl">Poort</label><input class="fi" id="mport" placeholder="502"></div>
+      <div class="fg"><label class="fl">Capaciteit</label><input class="fi" id="mcap" placeholder="bijv. 10 kWh"></div>
+    </div>
+    <div class="fg">
+      <label class="fl">HA Vermogen Entiteit (optioneel)</label>
+      <div class="epick">
+        <input class="fi" id="mhap" placeholder="sensor.zonnepanelen_vermogen" oninput="searchEnt('power',this.value)">
+        <div class="elist" id="el-power"></div>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">HA SoC Entiteit (optioneel)</label>
+      <div class="epick">
+        <input class="fi" id="mhas" placeholder="sensor.batterij_laadniveau" oninput="searchEnt('soc',this.value)">
+        <div class="elist" id="el-soc"></div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px">
+      <button class="bcancel" onclick="closeModal()">Annuleren</button>
+      <button class="bprimary" onclick="submitDevice()">Apparaat opslaan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Constants ────────────────────────────────────────────────────────────
+const ICONS  = {Thuisbatterij:'🔋',Zonnepanelen:'☀️','Laadpaal (EV)':'🔌',Warmtepomp:'🌡️',Boiler:'🚿','Net / Slimme meter':'📊',Omvormer:'⚡','Airco / Koeling':'❄️',Overig:'🔧'};
+const COLORS = {Thuisbatterij:'var(--accent)',Zonnepanelen:'var(--accent2)','Laadpaal (EV)':'var(--accent3)',Warmtepomp:'#a78bfa',Boiler:'#fb923c','Net / Slimme meter':'var(--muted)',Omvormer:'var(--accent2)',Overig:'var(--muted)'};
+
+// ── State ────────────────────────────────────────────────────────────────
+let ws, selType = 'Thuisbatterij';
+let live = {}, devices = [], settings = {}, history = [], haEnts = [];
+
+// ── WebSocket ────────────────────────────────────────────────────────────
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen = () => { setConn(true); fetchEnts(); };
+  ws.onclose = () => { setConn(false); setTimeout(connect, 5000); };
+  ws.onerror = () => setConn(false);
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'init') {
+      live = m.data.live; devices = m.data.devices;
+      settings = m.data.settings;
+      m.data.logs.forEach(pushLog);
+      applySettings(); updateDash(); renderDevices();
+    } else if (m.type === 'live') {
+      live = m.data; history.push({...m.data});
+      if (history.length > 60) history.shift();
+      updateDash(); updateChart();
+    } else if (m.type === 'devices') {
+      devices = m.data; renderDevices();
+    } else if (m.type === 'log') {
+      pushLog(m.data);
+    }
+  };
+}
+
+function setConn(ok) {
+  const el = document.getElementById('connpill');
+  el.textContent = ok ? 'Systeem actief' : 'Verbinding verbroken';
+  el.className = 'spill' + (ok ? '' : ' off');
+}
+
+// ── Dashboard ────────────────────────────────────────────────────────────
+function fmt(w) {
+  const v = Math.abs(w);
+  return v >= 1000 ? (w/1000).toFixed(2)+' kW' : w+' W';
+}
+
+function updateDash() {
+  const d = live; if (!d.timestamp) return;
+  setText('ks', fmt(d.solar_power));
+  setText('ks2', d.solar_power > 0 ? 'Opwekking actief' : 'Geen productie');
+  setText('kb', d.battery_soc + '%');
+  const bd = d.battery_power > 50 ? '▲ Laden' : d.battery_power < -50 ? '▼ Ontladen' : 'Stand-by';
+  setText('kb2', `${bd} · ${fmt(Math.abs(d.battery_power))}`);
+  setText('ke', fmt(d.ev_power));
+  setText('ke2', d.ev_power > 0 ? 'EV aan het laden' : 'Inactief');
+  setText('kg', fmt(d.grid_power));
+  setText('kg2', d.grid_power < 0 ? 'Teruglevering actief' : d.grid_power > 0 ? 'Netafname' : 'Balans');
+
+  setText('fs', fmt(d.solar_power));
+  setText('fh', fmt(d.home_power));
+  setText('fb', (d.battery_power >= 0 ? '+' : '') + fmt(d.battery_power));
+  setText('fbsoc', `SoC ${d.battery_soc}%`);
+  setText('fev', fmt(d.ev_power));
+  setText('fg2', fmt(d.grid_power));
+  setText('fgl', d.grid_power < 0 ? 'Net · Teruglevering' : 'Net · Afname');
+  if (d.heatpump_power > 0) setText('fhp', `WP: ${fmt(d.heatpump_power)}`);
+}
+
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function updateChart() {
+  if (history.length < 2) return;
+  const maxV = Math.max(1, ...history.flatMap(h =>
+    [Math.abs(h.solar_power||0), Math.abs(h.battery_power||0), Math.abs(h.ev_power||0), Math.abs(h.grid_power||0)]
+  ));
+  const path = key => history.map((h, i) => {
+    const x = (i / (history.length - 1)) * 800;
+    const y = 155 - (Math.abs(h[key]||0) / maxV) * 130;
+    return `${i===0?'M':'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  setAttr('cp-sol', 'd', path('solar_power'));
+  setAttr('cp-bat', 'd', path('battery_power'));
+  setAttr('cp-ev',  'd', path('ev_power'));
+  setAttr('cp-grd', 'd', path('grid_power'));
+}
+
+function setAttr(id, attr, val) {
+  const el = document.getElementById(id);
+  if (el) el.setAttribute(attr, val);
+}
+
+// ── Devices ──────────────────────────────────────────────────────────────
+function renderDevices() {
+  const grid = document.getElementById('dgrid');
+  setText('dcnt', devices.length);
+  if (!devices.length) {
+    grid.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:48px;text-align:center;grid-column:1/-1">
+      <div style="font-size:38px;margin-bottom:10px">🔌</div>Geen apparaten. Klik "Apparaat toevoegen".
+    </div>`;
+    return;
+  }
+  grid.innerHTML = '';
+  devices.forEach(d => {
+    const icon  = ICONS[d.type]  || '🔧';
+    const color = COLORS[d.type] || 'var(--muted)';
+    const bc = d.status==='online' ? 'bon' : d.status==='standby' ? 'bsby' : 'boff';
+    const bt = d.status==='online' ? 'Online' : d.status==='standby' ? 'Stand-by' : 'Offline';
+    const bar = d.soc != null ? d.soc : Math.min(100, Math.abs(d.power||0)/100);
+    const el = document.createElement('div');
+    el.className = 'dcard';
+    el.innerHTML = `
+      <div class="dhead">
+        <div class="dicon" style="background:${color}1a">${icon}</div>
+        <div><div class="dname">${d.name}</div><div class="dtype">${d.brand||''} · ${d.protocol||''}</div></div>
+        <div class="dbadge ${bc}">${bt}</div>
+      </div>
+      <div class="dstats">
+        ${d.soc!=null ? `<div class="ds"><div class="dslbl">Laadniveau</div><div class="dsval" style="color:${color}">${d.soc}%</div></div>` : `<div class="ds"><div class="dslbl">Type</div><div class="dsval">${d.type}</div></div>`}
+        <div class="ds"><div class="dslbl">Huidig vermogen</div><div class="dsval" style="color:${color}">${d.power>=0?'+':''}${d.power||0} W</div></div>
+      </div>
+      ${d.ip ? `<div style="font-size:11px;color:var(--muted)">${d.ip}${d.port?':'+d.port:''} · ${d.cap||'—'}</div>` : ''}
+      <div class="dbar"><div class="dbarf" style="background:${color};width:${bar}%"></div></div>
+      <div class="dbtns">
+        <button class="dbtn" onclick="patchDevice(${d.id},{status:'${d.status==='disabled'?'online':'disabled'}'})">${d.status==='disabled'?'Activeren':'Uitschakelen'}</button>
+        <button class="dbtn del" onclick="delDevice(${d.id})">Verwijderen</button>
+      </div>`;
+    grid.appendChild(el);
+  });
+}
+
+async function patchDevice(id, data) {
+  await fetch(`/api/devices/${id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+}
+
+async function delDevice(id) {
+  if (!confirm('Apparaat verwijderen?')) return;
+  await fetch(`/api/devices/${id}`, {method:'DELETE'});
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────
+function applySettings() {
+  const s = settings; if (!s) return;
+  const m = {
+    't-sc':'strategy_self_consumption','t-ev':'strategy_smart_charging',
+    't-dt':'strategy_dynamic_tariff','t-ps':'strategy_peak_shaving',
+    't-hp':'strategy_heatpump','t-nc':'battery_night_charging',
+    't-v2g':'battery_v2g','t-mqtt':'mqtt_enabled','t-mb':'modbus_enabled',
+    't-ocpp':'ocpp_enabled','t-ng':'notify_grid_fail',
+    't-nb':'notify_battery','t-ne':'notify_ev_done'
+  };
+  for (const [id, key] of Object.entries(m)) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('on', !!s[key]);
+  }
+  const sl = document.getElementById('socslider');
+  if (sl) { sl.value = s.battery_min_soc||20; setText('socv', s.battery_min_soc||20); }
+  const setV = (id, val) => { const e = document.getElementById(id); if (e) e.value = val||''; };
+  setV('ti', s.energy_tariff_import); setV('te', s.energy_tariff_export);
+  setV('tscan', s.scan_interval); setV('tmaxg', s.max_grid_power);
+  const ml = document.getElementById('mqttlbl');
+  if (ml) ml.textContent = MQTT_HOST || 'homeassistant';
+}
+
+function tog(el, key) {
+  el.classList.toggle('on');
+  settings[key] = el.classList.contains('on');
+}
+
+async function saveSettings() {
+  const payload = {
+    ...settings,
+    battery_min_soc:       parseInt(document.getElementById('socslider').value),
+    energy_tariff_import:  parseFloat(document.getElementById('ti').value),
+    energy_tariff_export:  parseFloat(document.getElementById('te').value),
+    scan_interval:         parseInt(document.getElementById('tscan').value),
+    max_grid_power:        parseInt(document.getElementById('tmaxg').value),
+  };
+  const r = await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+  if (r.ok) { settings = await r.json(); alert('✅ Instellingen opgeslagen'); }
+}
+
+const MQTT_HOST = '';
+
+// ── Log ───────────────────────────────────────────────────────────────────
+function pushLog(e) {
+  const body = document.getElementById('logbody');
+  if (body.querySelector('div[style]')) body.innerHTML = '';
+  const d = document.createElement('div');
+  d.className = 'lline';
+  d.innerHTML = `<span class="ltime">${e.time}</span><span class="lmsg ${e.type}">${e.msg}</span>`;
+  body.insertBefore(d, body.firstChild);
+  while (body.children.length > 200) body.removeChild(body.lastChild);
+  setText('lcnt', body.children.length);
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────
+function openModal()  { document.getElementById('modal').classList.add('open'); }
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function pickType(el, type) {
+  document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel'); selType = type;
+}
+async function submitDevice() {
+  const name = document.getElementById('mn').value.trim();
+  if (!name) { document.getElementById('mn').focus(); return; }
+  const body = {
+    name, type: selType,
+    brand:         document.getElementById('mbrand').value,
+    protocol:      document.getElementById('mproto').value,
+    ip:            document.getElementById('mip').value.trim(),
+    port:          document.getElementById('mport').value.trim(),
+    cap:           document.getElementById('mcap').value.trim(),
+    ha_entity_power: document.getElementById('mhap').value.trim(),
+    ha_entity_soc:   document.getElementById('mhas').value.trim(),
+  };
+  const r = await fetch('/api/devices', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  if (r.ok) {
+    closeModal();
+    ['mn','mip','mport','mcap','mhap','mhas'].forEach(id => document.getElementById(id).value='');
+  } else alert('Fout bij opslaan');
+}
+
+// ── HA entity search ──────────────────────────────────────────────────────
+async function fetchEnts() {
+  try { const r = await fetch('/api/ha/entities'); if (r.ok) haEnts = await r.json(); } catch(e){}
+}
+function searchEnt(field, q) {
+  const list = document.getElementById(`el-${field}`);
+  if (!q || q.length < 2) { list.classList.remove('open'); return; }
+  const matches = haEnts.filter(e => e.entity_id.includes(q.toLowerCase()) || (e.friendly_name||'').toLowerCase().includes(q.toLowerCase())).slice(0, 8);
+  if (!matches.length) { list.classList.remove('open'); return; }
+  list.innerHTML = matches.map(e => `<div class="eopt" onclick="pickEnt('${field}','${e.entity_id}')">
+    <div>${e.friendly_name||e.entity_id}</div><div class="eid">${e.entity_id} · ${e.state} ${e.unit}</div>
+  </div>`).join('');
+  list.classList.add('open');
+}
+function pickEnt(field, id) {
+  document.getElementById(field==='power'?'mhap':'mhas').value = id;
+  document.getElementById(`el-${field}`).classList.remove('open');
+}
+
+// ── Nav ───────────────────────────────────────────────────────────────────
+function gotoView(v, el) {
+  document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.nav').forEach(x => x.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  el.classList.add('active');
+  setText('vtitle', {dashboard:'Dashboard',devices:'Apparaten',settings:'Instellingen',log:'Logboek'}[v]);
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.epick')) document.querySelectorAll('.elist').forEach(l => l.classList.remove('open'));
+});
+
+// ── Start ─────────────────────────────────────────────────────────────────
+connect();
+</script>
+</body>
+</html>
